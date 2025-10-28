@@ -28,6 +28,8 @@ const sessionRepository = require('./features/common/repositories/session');
 const modelStateService = require('./features/common/services/modelStateService');
 const featureBridge = require('./bridge/featureBridge');
 const windowBridge = require('./bridge/windowBridge');
+const Store = require('electron-store');
+const licenseStore = new Store({ name: 'license' });
 
 // Global variables
 const eventBridge = new EventEmitter();
@@ -220,6 +222,9 @@ app.whenReady().then(async () => {
         console.log('Web front-end listening on', WEB_PORT);
         
         createWindows();
+
+        // Check license status on first launch
+        await checkAndShowLicenseDialog();
 
     } catch (err) {
         console.error('>>> [index.js] Database initialization failed - some features may not work', err);
@@ -701,28 +706,149 @@ async function initAutoUpdater() {
     }
 
     try {
-        await autoUpdater.checkForUpdates();
-        autoUpdater.on('update-available', () => {
-            console.log('Update available!');
+        // Set update server for different platforms
+        const platform = process.platform;
+        const version = app.getVersion();
+        
+        // Use your API endpoint for updates
+        const updateServerUrl = process.env.UPDATE_SERVER_URL || 'https://updates.pickle.com';
+        
+        autoUpdater.setFeedURL({
+            provider: 'generic',
+            url: `${updateServerUrl}/updates`,
+            channel: 'latest'
+        });
+
+        console.log('[AutoUpdater] Checking for updates...');
+
+        autoUpdater.on('checking-for-update', () => {
+            console.log('[AutoUpdater] Checking for updates...');
+        });
+
+        autoUpdater.on('update-available', (info) => {
+            console.log('[AutoUpdater] Update available:', info.version);
+            const licenseKey = licenseStore.get('license_key');
+            const tier = licenseStore.get('tier', 'free');
+            
+            // Track update availability (optional analytics)
+            if (licenseKey && process.env.pickleglass_API_URL) {
+                fetch(`${process.env.pickleglass_API_URL}/api/track-update`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        licenseKey, 
+                        tier,
+                        currentVersion: version,
+                        availableVersion: info.version 
+                    }),
+                }).catch(err => console.warn('Failed to track update availability:', err));
+            }
+            
             autoUpdater.downloadUpdate();
         });
+
+        autoUpdater.on('update-not-available', (info) => {
+            console.log('[AutoUpdater] Update not available. Running latest version:', version);
+        });
+
         autoUpdater.on('update-downloaded', (event, releaseNotes, releaseName, date, url) => {
-            console.log('Update downloaded:', releaseNotes, releaseName, date, url);
+            console.log('[AutoUpdater] Update downloaded:', releaseName);
+            
+            const licenseKey = licenseStore.get('license_key');
+            const tier = licenseStore.get('tier', 'free');
+            
+            // Track download completion
+            if (licenseKey && process.env.pickleglass_API_URL) {
+                fetch(`${process.env.pickleglass_API_URL}/api/track-update`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        licenseKey,
+                        tier,
+                        currentVersion: version,
+                        downloadedVersion: releaseName,
+                        downloaded: true
+                    }),
+                }).catch(err => console.warn('Failed to track update download:', err));
+            }
+            
             dialog.showMessageBox({
                 type: 'info',
-                title: 'Application Update',
-                message: `A new version of PickleGlass (${releaseName}) has been downloaded. It will be installed the next time you launch the application.`,
-                buttons: ['Restart', 'Later']
+                title: 'Application Update Ready',
+                message: `A new version of Glass (${releaseName}) has been downloaded. Restart now to install the update?`,
+                detail: releaseNotes || 'Bug fixes and improvements',
+                buttons: ['Restart Now', 'Later'],
+                defaultId: 0,
+                cancelId: 1
             }).then(response => {
                 if (response.response === 0) {
                     autoUpdater.quitAndInstall();
                 }
             });
         });
-        autoUpdater.on('error', (err) => {
-            console.error('Error in auto-updater:', err);
+
+        autoUpdater.on('download-progress', (progressObj) => {
+            let message = `Downloading update: ${progressObj.percent.toFixed(0)}%`;
+            console.log('[AutoUpdater]', message);
         });
+
+        autoUpdater.on('error', (err) => {
+            console.error('[AutoUpdater] Error:', err);
+        });
+
+        // Check for updates on startup
+        await autoUpdater.checkForUpdates();
+        
+        // Check for updates every 4 hours
+        setInterval(() => {
+            autoUpdater.checkForUpdates();
+        }, 4 * 60 * 60 * 1000);
+
+        console.log('[AutoUpdater] Initialized and checking for updates');
     } catch (err) {
-        console.error('Error initializing auto-updater:', err);
+        console.error('[AutoUpdater] Initialization failed:', err);
+    }
+}
+
+async function checkAndShowLicenseDialog() {
+    const hasLicense = licenseStore.has('license_key') || licenseStore.get('skipped', false);
+    
+    if (!hasLicense) {
+        try {
+            const licenseWindow = new BrowserWindow({
+                width: 500,
+                height: 400,
+                modal: true,
+                resizable: false,
+                webPreferences: {
+                    nodeIntegration: false,
+                    contextIsolation: true,
+                    preload: path.join(__dirname, 'preload.js'),
+                },
+            });
+
+            licenseWindow.loadFile(path.join(__dirname, 'ui', 'license-entry.html'));
+            
+            console.log('[License] Showing license entry dialog');
+
+            // Handle license validation result
+            licenseWindow.webContents.on('did-finish-load', () => {
+                licenseWindow.webContents.send('license-dialog-ready');
+            });
+        } catch (error) {
+            console.error('[License] Failed to show license dialog:', error);
+        }
+    } else {
+        const tier = licenseStore.get('tier', 'free');
+        console.log(`[License] License found. Tier: ${tier}`);
+        
+        // Sync playbooks from cloud on launch
+        try {
+            const { ipcMain } = require('electron');
+            // This will be called via IPC from renderer
+            console.log('[License] Playbooks will be synced on startup');
+        } catch (error) {
+            console.warn('[License] Playbook sync deferred:', error.message);
+        }
     }
 }

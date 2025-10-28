@@ -5,6 +5,7 @@ const authService = require('../common/services/authService');
 const sessionRepository = require('../common/repositories/session');
 const sttRepository = require('./stt/repositories');
 const internalBridge = require('../../bridge/internalBridge');
+const playbookEngine = require('../playbooks/playbookEngine');
 
 class ListenService {
     constructor() {
@@ -104,6 +105,19 @@ class ListenService {
         
         // Add to summary service for analysis
         this.summaryService.addConversationTurn(speaker, text);
+
+        // Check for playbook triggers if active
+        if (playbookEngine.hasActivePlaybook()) {
+            try {
+                const suggestion = await playbookEngine.processTranscript(text);
+                if (suggestion) {
+                    console.log(`[ListenService] Playbook suggestion triggered:`, suggestion.playbookName);
+                    this.sendToRenderer('playbook-suggestion', suggestion);
+                }
+            } catch (error) {
+                console.error('[ListenService] Playbook trigger processing failed:', error);
+            }
+        }
     }
 
     async saveConversationTurn(speaker, transcription) {

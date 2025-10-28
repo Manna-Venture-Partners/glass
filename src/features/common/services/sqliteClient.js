@@ -237,6 +237,14 @@ class SQLiteClient {
             stmt.run(preset[0], this.defaultUserId, preset[1], preset[2], preset[3], now);
         }
 
+        // Seed default playbooks
+        const { seedDefaultPlaybooks } = require('../../playbooks/seedPlaybooks');
+        try {
+            seedDefaultPlaybooks();
+        } catch (error) {
+            console.error('Error seeding playbooks:', error);
+        }
+
         console.log('Default data initialized.');
     }
 

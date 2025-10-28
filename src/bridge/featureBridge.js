@@ -12,6 +12,7 @@ const askService = require('../features/ask/askService');
 const listenService = require('../features/listen/listenService');
 const permissionService = require('../features/common/services/permissionService');
 const encryptionService = require('../features/common/services/encryptionService');
+const playbookService = require('../features/playbooks/playbookService');
 
 module.exports = {
   // Renderer로부터의 요청을 수신하고 서비스로 전달
@@ -227,6 +228,154 @@ module.exports = {
     // 전체 상태 조회
     ipcMain.handle('localai:get-all-states', async (event) => {
       return await localAIManager.getAllServiceStates();
+    });
+
+    // Playbook Service - initialized after other services
+    playbookService.initialize();
+
+    // Playbook Engine handlers
+    const playbookEngine = require('../features/playbooks/playbookEngine');
+    
+    ipcMain.handle('playbook-engine:initialize', async () => {
+      try {
+        await playbookEngine.initialize();
+        return { success: true };
+      } catch (error) {
+        console.error('[FeatureBridge] Playbook engine initialization failed:', error);
+        return { success: false, error: error.message };
+      }
+    });
+    
+    ipcMain.handle('playbook-engine:load', async (event, playbookId) => {
+      try {
+        const success = await playbookEngine.loadPlaybook(playbookId);
+        return { success };
+      } catch (error) {
+        console.error('[FeatureBridge] Failed to load playbook:', error);
+        return { success: false, error: error.message };
+      }
+    });
+    
+    ipcMain.handle('playbook-engine:unload', async () => {
+      playbookEngine.unloadPlaybook();
+      return { success: true };
+    });
+    
+    ipcMain.handle('playbook-engine:getActive', async () => {
+      return {
+        hasActive: playbookEngine.hasActivePlaybook(),
+        playbookId: playbookEngine.getActivePlaybookId()
+      };
+    });
+    
+    ipcMain.handle('playbook-engine:processTranscript', async (event, { transcript, screenContent }) => {
+      try {
+        return await playbookEngine.processTranscript(transcript, screenContent);
+      } catch (error) {
+        console.error('[FeatureBridge] Transcript processing failed:', error);
+        return null;
+      }
+    });
+
+    // Initialize the engine
+    playbookEngine.initialize().catch(err => {
+      console.warn('[FeatureBridge] Playbook engine initialization deferred:', err.message);
+    });
+
+    // License Management
+    const Store = require('electron-store');
+    const licenseStore = new Store({ name: 'license' });
+
+    ipcMain.handle('validate-license', async (event, { licenseKey, deviceId, version }) => {
+      try {
+        const response = await fetch(`${process.env.pickleglass_API_URL}/api/validate-license`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ licenseKey, deviceId, version }),
+        });
+
+        const result = await response.json();
+        
+        if (result.valid) {
+          // Save license to local storage
+          licenseStore.set('license_key', licenseKey);
+          licenseStore.set('tier', result.tier);
+          licenseStore.set('features', result.features);
+          licenseStore.set('validated_at', Date.now());
+        }
+
+        return result;
+      } catch (error) {
+        console.error('[FeatureBridge] License validation failed:', error);
+        return { valid: false, message: 'Network error', tier: 'free', features: {} };
+      }
+    });
+
+    ipcMain.handle('save-license', async (event, { licenseKey, tier, features }) => {
+      licenseStore.set('license_key', licenseKey);
+      licenseStore.set('tier', tier);
+      licenseStore.set('features', features);
+      licenseStore.set('validated_at', Date.now());
+      return { success: true };
+    });
+
+    ipcMain.handle('skip-license', async () => {
+      licenseStore.set('skipped', true);
+      licenseStore.set('tier', 'free');
+      licenseStore.set('features', {
+        aiCreditsRemaining: 5,
+        playbooks: ['sales-demo', 'objection-handler'],
+        customPlaybooks: false,
+        unlimitedAI: false,
+        models: ['gpt-4o-mini'],
+      });
+      return { success: true };
+    });
+
+    ipcMain.handle('has-license', () => {
+      return licenseStore.has('license_key') || licenseStore.get('skipped', false);
+    });
+
+    ipcMain.handle('get-license-info', () => {
+      return {
+        licenseKey: licenseStore.get('license_key'),
+        tier: licenseStore.get('tier', 'free'),
+        features: licenseStore.get('features', {}),
+        validatedAt: licenseStore.get('validated_at'),
+      };
+    });
+
+    // Playbook syncing
+    ipcMain.handle('sync-playbooks', async () => {
+      try {
+        const licenseKey = licenseStore.get('license_key');
+        
+        if (!licenseKey || !process.env.pickleglass_API_URL) {
+          // Return cached playbooks or empty
+          return { playbooks: licenseStore.get('playbooks', []) };
+        }
+
+        const response = await fetch(
+          `${process.env.pickleglass_API_URL}/api/playbooks?licenseKey=${licenseKey}`
+        );
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch playbooks');
+        }
+
+        const { playbooks } = await response.json();
+        
+        // Cache locally
+        licenseStore.set('playbooks', playbooks);
+        licenseStore.set('playbooks_synced_at', Date.now());
+
+        console.log(`[FeatureBridge] Synced ${playbooks.length} playbooks`);
+        return { playbooks };
+      } catch (error) {
+        console.error('[FeatureBridge] Failed to sync playbooks:', error);
+        // Return cached playbooks on error
+        return { playbooks: licenseStore.get('playbooks', []) };
+      }
     });
 
     console.log('[FeatureBridge] Initialized with all feature handlers.');

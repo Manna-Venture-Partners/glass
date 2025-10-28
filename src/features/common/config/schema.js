@@ -114,6 +114,57 @@ const LATEST_SCHEMA = {
             { name: 'uid', type: 'TEXT PRIMARY KEY' },
             { name: 'keychain_completed', type: 'INTEGER DEFAULT 0' }
         ]
+    },
+    playbooks: {
+        columns: [
+            { name: 'id', type: 'TEXT PRIMARY KEY' },
+            { name: 'name', type: 'TEXT NOT NULL' },
+            { name: 'description', type: 'TEXT' },
+            { name: 'category', type: 'TEXT' },
+            { name: 'icon', type: 'TEXT' },
+            { name: 'is_premium', type: 'INTEGER DEFAULT 0' },
+            { name: 'is_template', type: 'INTEGER DEFAULT 1' },
+            { name: 'created_by', type: 'TEXT' },
+            { name: 'created_at', type: 'INTEGER' },
+            { name: 'updated_at', type: 'INTEGER' },
+            { name: 'sync_state', type: 'TEXT DEFAULT \'clean\'' }
+        ]
+    },
+    playbook_prompts: {
+        columns: [
+            { name: 'id', type: 'TEXT PRIMARY KEY' },
+            { name: 'playbook_id', type: 'TEXT NOT NULL' },
+            { name: 'trigger_type', type: 'TEXT' },
+            { name: 'trigger_value', type: 'TEXT' },
+            { name: 'prompt_text', type: 'TEXT NOT NULL' },
+            { name: 'priority', type: 'INTEGER DEFAULT 0' },
+            { name: 'order_index', type: 'INTEGER DEFAULT 0' },
+            { name: 'sync_state', type: 'TEXT DEFAULT \'clean\'' }
+        ]
+    },
+    playbook_documents: {
+        columns: [
+            { name: 'id', type: 'TEXT PRIMARY KEY' },
+            { name: 'playbook_id', type: 'TEXT NOT NULL' },
+            { name: 'file_name', type: 'TEXT NOT NULL' },
+            { name: 'file_url', type: 'TEXT NOT NULL' },
+            { name: 'file_type', type: 'TEXT' },
+            { name: 'processed_text', type: 'TEXT' },
+            { name: 'uploaded_at', type: 'INTEGER' },
+            { name: 'sync_state', type: 'TEXT DEFAULT \'clean\'' }
+        ]
+    },
+    user_playbooks: {
+        columns: [
+            { name: 'id', type: 'TEXT PRIMARY KEY' },
+            { name: 'user_id', type: 'TEXT NOT NULL' },
+            { name: 'playbook_id', type: 'TEXT NOT NULL' },
+            { name: 'is_favorite', type: 'INTEGER DEFAULT 0' },
+            { name: 'customizations', type: 'TEXT' },
+            { name: 'last_used', type: 'INTEGER' },
+            { name: 'usage_count', type: 'INTEGER DEFAULT 0' },
+            { name: 'sync_state', type: 'TEXT DEFAULT \'clean\'' }
+        ]
     }
 };
 

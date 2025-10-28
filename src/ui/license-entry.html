@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glass - License Activation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .license-container {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .logo-text {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1a202c;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #718096;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .license-input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 8px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 2px;
+            transition: all 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .error-message {
+            color: #e53e3e;
+            font-size: 13px;
+            margin-top: 8px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .skip-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .skip-link a {
+            color: #718096;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .skip-link a:hover {
+            color: #667eea;
+        }
+
+        .success-message {
+            display: none;
+            background: #c6f6d5;
+            border: 1px solid #68d391;
+            color: #22543d;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="license-container">
+        <div class="logo">
+            <div class="logo-icon">🪟</div>
+            <div class="logo-text">Glass</div>
+        </div>
+
+        <p class="subtitle">
+            Enter your license key to activate all features.<br>
+            Don't have a key? <a href="#" onclick="window.open('https://pickle.com/pricing')">Get one here</a>
+        </p>
+
+        <form id="license-form">
+            <div class="license-input-group">
+                <label for="license-key">License Key</label>
+                <input 
+                    type="text" 
+                    id="license-key" 
+                    name="license-key" 
+                    placeholder="XXXX-XXXX-XXXX-XXXX"
+                    maxlength="19"
+                    required
+                    autofocus
+                >
+                <div class="error-message" id="error-message"></div>
+            </div>
+
+            <div class="button-group">
+                <button type="button" class="btn-secondary" id="skip-btn">Continue Free</button>
+                <button type="submit" class="btn-primary" id="activate-btn">Activate</button>
+            </button>
+        </form>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 12px; color: #718096;">Validating license...</p>
+        </div>
+
+        <div class="success-message" id="success-message"></div>
+
+        <div class="skip-link">
+            <a href="#" id="trial-link">Start 7-day free trial</a>
+        </div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron')
+
+        // Auto-format license key input
+        const licenseInput = document.getElementById('license-key')
+        licenseInput.addEventListener('input', (e) => {
+            let value = e.target.value.replace(/[^A-Z0-9]/g, '')
+            if (value.length > 16) value = value.substring(0, 16)
+            
+            let formatted = ''
+            for (let i = 0; i < value.length; i++) {
+                if (i > 0 && i % 4 === 0) formatted += '-'
+                formatted += value[i]
+            }
+            
+            e.target.value = formatted
+        })
+
+        // Form submission
+        document.getElementById('license-form').addEventListener('submit', async (e) => {
+            e.preventDefault()
+            const licenseKey = licenseInput.value.trim().replace(/-/g, '')
+            
+            if (licenseKey.length !== 16) {
+                showError('Invalid license key format')
+                return
+            }
+
+            showLoading()
+            
+            try {
+                // Generate device ID (in real app, this would be more robust)
+                const deviceId = await getDeviceId()
+                
+                const result = await ipcRenderer.invoke('validate-license', {
+                    licenseKey,
+                    deviceId,
+                    version: '1.0.0'
+                })
+
+                if (result.valid) {
+                    // Save license to storage
+                    await ipcRenderer.invoke('save-license', {
+                        licenseKey,
+                        tier: result.tier,
+                        features: result.features
+                    })
+                    
+                    showSuccess(`Activated! Welcome to ${result.tier.toUpperCase()} tier`)
+                    
+                    setTimeout(() => {
+                        window.close()
+                    }, 2000)
+                } else {
+                    showError(result.message || 'Invalid license key')
+                }
+            } catch (error) {
+                console.error('License validation error:', error)
+                showError('Failed to validate license. Please try again.')
+            } finally {
+                hideLoading()
+            }
+        })
+
+        // Skip to free tier
+        document.getElementById('skip-btn').addEventListener('click', async () => {
+            await ipcRenderer.invoke('skip-license')
+            window.close()
+        })
+
+        // Trial link
+        document.getElementById('trial-link').addEventListener('click', (e) => {
+            e.preventDefault()
+            window.open('https://pickle.com/pricing')
+        })
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message')
+            errorDiv.textContent = message
+            errorDiv.classList.add('show')
+            setTimeout(() => errorDiv.classList.remove('show'), 5000)
+        }
+
+        function showLoading() {
+            document.getElementById('loading').classList.add('show')
+            document.getElementById('activate-btn').disabled = true
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').classList.remove('show')
+            document.getElementById('activate-btn').disabled = false
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.getElementById('success-message')
+            successDiv.textContent = message
+            successDiv.classList.add('show')
+        }
+
+        async function getDeviceId() {
+            // Simple device ID generation (in production, use machine UUID)
+            const os = require('os')
+            return `${os.platform()}-${os.arch()}-${os.hostname()}`.substring(0, 64)
+        }
+    </script>
+</body>
+</html>
+

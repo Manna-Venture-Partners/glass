@@ -22,6 +22,7 @@ const util = require('util');
 const execFile = util.promisify(require('child_process').execFile);
 const { desktopCapturer } = require('electron');
 const modelStateService = require('../common/services/modelStateService');
+const playbookEngine = require('../playbooks/playbookEngine');
 
 // Try to load sharp, but don't fail if it's not available
 let sharp;
@@ -239,6 +240,9 @@ class AskService {
         try {
             console.log(`[AskService] 🤖 Processing message: ${userPrompt.substring(0, 50)}...`);
 
+            // Check license and track usage before AI request
+            await checkAndTrackLicense();
+
             sessionId = await sessionRepository.getOrCreateActive('ask');
             await askRepository.addAiMessage({ sessionId, role: 'user', content: userPrompt.trim() });
             console.log(`[AskService] DB: Saved user prompt to session ${sessionId}`);
@@ -254,7 +258,20 @@ class AskService {
 
             const conversationHistory = this._formatConversationForPrompt(conversationHistoryRaw);
 
-            const systemPrompt = getSystemPrompt('pickle_glass_analysis', conversationHistory, false);
+            // Enhance prompt with playbook context if available
+            let systemPrompt = getSystemPrompt('pickle_glass_analysis', conversationHistory, false);
+            let enhancedContext = null;
+            
+            if (playbookEngine.hasActivePlaybook()) {
+                enhancedContext = await playbookEngine.generateContextualResponse(
+                    userPrompt, 
+                    conversationHistoryRaw
+                );
+                if (enhancedContext) {
+                    console.log(`[AskService] Playbook context injected: ${enhancedContext.playbookName}`);
+                    systemPrompt = `${systemPrompt}\n\nContext-specific guidance from "${enhancedContext.playbookName}": ${enhancedContext.originalPrompt}`;
+                }
+            }
 
             const messages = [
                 { role: 'system', content: systemPrompt },
@@ -441,6 +458,79 @@ class AskService {
             errorMessage.includes('invalid') ||
             errorMessage.includes('not supported')
         );
+    }
+
+    /**
+     * Check license and track AI usage before making request
+     * @private
+     */
+    async checkAndTrackLicense() {
+        try {
+            // Check if license exists
+            const { ipcMain } = require('electron');
+            const { BrowserWindow } = require('electron');
+            
+            // Get license info from store
+            const Store = require('electron-store');
+            const licenseStore = new Store({ name: 'license' });
+            
+            const hasLicense = licenseStore.has('license_key') || licenseStore.get('skipped', false);
+            
+            if (!hasLicense || licenseStore.get('skipped', false)) {
+                // Free tier: check daily limit
+                const features = licenseStore.get('features', {});
+                const creditsRemaining = features.aiCreditsRemaining || 5;
+                
+                if (creditsRemaining <= 0) {
+                    throw new Error('Daily AI response limit reached (5/day). Upgrade to Pro for unlimited responses.');
+                }
+            }
+
+            // Track usage for limited tiers
+            const tier = licenseStore.get('tier', 'free');
+            const features = licenseStore.get('features', {});
+            
+            if (tier === 'free' || tier === 'starter') {
+                const licenseKey = licenseStore.get('license_key');
+                
+                if (licenseKey && process.env.pickleglass_API_URL) {
+                    try {
+                        const response = await fetch(`${process.env.pickleglass_API_URL}/api/track-usage`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ licenseKey, type: 'ai_query' }),
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            // Update local storage with remaining credits
+                            const updatedFeatures = { ...features, aiCreditsRemaining: result.creditsRemaining };
+                            licenseStore.set('features', updatedFeatures);
+                        }
+                    } catch (trackError) {
+                        console.warn('[AskService] Failed to track usage:', trackError.message);
+                        // Don't block the request if tracking fails
+                    }
+                }
+            }
+
+            // For free tier without license key, consume local credit
+            if (!licenseStore.has('license_key') && licenseStore.get('skipped', false)) {
+                const currentCredits = features.aiCreditsRemaining || 5;
+                if (currentCredits <= 0) {
+                    throw new Error('Daily limit reached. Restart the app tomorrow or enter a license key.');
+                }
+                
+                const updatedFeatures = { ...features, aiCreditsRemaining: currentCredits - 1 };
+                licenseStore.set('features', updatedFeatures);
+                console.log(`[AskService] Local credit consumed. Remaining: ${updatedFeatures.aiCreditsRemaining}`);
+            }
+            
+        } catch (error) {
+            console.error('[AskService] License check failed:', error);
+            throw error;
+        }
     }
 
 }
