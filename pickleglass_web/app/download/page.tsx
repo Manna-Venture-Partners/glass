@@ -30,10 +30,13 @@ export default function DownloadPage() {
             <Monitor className="h-16 w-16 text-blue-600 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 mb-2">Desktop</h3>
             <p className="text-gray-600 mb-6">Windows, macOS, Linux</p>
-            <button className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors">
-              <Download className="h-5 w-5 inline mr-2" />
+            <a
+              href="/api/download?licenseKey=demo"
+              className="inline-flex items-center justify-center w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Download className="h-5 w-5 mr-2" />
               Download Desktop
-            </button>
+            </a>
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 p-8 hover:shadow-lg transition-shadow">

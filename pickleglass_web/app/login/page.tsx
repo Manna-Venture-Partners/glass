@@ -5,6 +5,7 @@ import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth'
 import { auth } from '@/utils/firebase'
 import { Chrome } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { analytics } from '@/lib/analytics'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -27,6 +28,9 @@ export default function LoginPage() {
       
       if (user) {
         console.log('✅ Google login successful:', user.uid)
+        
+        // Track login
+        analytics.userLogin('google')
 
         if (isElectronMode) {
           try {

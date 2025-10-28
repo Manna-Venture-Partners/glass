@@ -13,6 +13,7 @@ import {
   logout
 } from '@/utils/api'
 import { useRouter } from 'next/navigation'
+import { PlaybookSelector } from '@/components/PlaybookSelector'
 
 declare global {
   interface Window {
@@ -20,7 +21,22 @@ declare global {
   }
 }
 
-type Tab = 'profile' | 'privacy' | 'billing'
+function PlaybookSelectorTab() {
+  return (
+    <div className="space-y-6">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+        <h3 className="text-lg font-semibold text-blue-900 mb-2">Context-Aware AI Assistance</h3>
+        <p className="text-sm text-blue-700">
+          Playbooks provide specialized AI prompts for different scenarios. Select a playbook to enable 
+          intelligent, context-aware assistance during your conversations, meetings, and calls.
+        </p>
+      </div>
+      <PlaybookSelector />
+    </div>
+  )
+}
+
+type Tab = 'profile' | 'playbooks' | 'privacy' | 'billing'
 type BillingCycle = 'monthly' | 'annually'
 
 export default function SettingsPage() {
@@ -92,6 +108,7 @@ export default function SettingsPage() {
 
   const tabs = [
     { id: 'profile' as Tab, name: 'Personal Profile', href: '/settings' },
+    { id: 'playbooks' as Tab, name: 'Playbooks', href: '/settings' },
     { id: 'privacy' as Tab, name: 'Data & Privacy', href: '/settings/privacy' },
     { id: 'billing' as Tab, name: 'Billing', href: '/settings/billing' },
   ]
@@ -343,6 +360,8 @@ export default function SettingsPage() {
 
   const renderTabContent = () => {
     switch (activeTab) {
+      case 'playbooks':
+        return <PlaybookSelectorTab />
       case 'billing':
         return renderBillingContent()
       case 'profile':
