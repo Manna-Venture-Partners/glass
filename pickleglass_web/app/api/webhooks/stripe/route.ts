@@ -4,7 +4,7 @@ import { getFirestoreInstance } from '@/utils/firebase-admin'
 import { Timestamp } from 'firebase-admin/firestore'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-10-28.acacia',
+  typescript: true,
 })
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || ''
